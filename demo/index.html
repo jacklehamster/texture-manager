@@ -1,6 +1,143 @@
 <script src="../public/texture-manager.js"></script>
 
+<canvas id="canvas" width=500 height=500 style="border: 1px solid black"></canvas>
+
 <script id="code-javascript">
+	document.addEventListener("DOMContentLoaded", async () => {
+		const canvas = document.getElementById("canvas");
+		const gl = canvas.getContext("webgl2");
+		const program = gl.createProgram();
+		const vertexShader = createShader(gl, gl.VERTEX_SHADER,
+			`#version 300 es
+				precision mediump float;
+				in vec3 vertexPosition;			
+				out vec2 v_textureCoord;
+				out float v_index;
+				void main() {
+					gl_Position = vec4(vertexPosition, 1.);
+					v_textureCoord = (vertexPosition.xy + vec2(1.,-1.)) * vec2(.5, -.5);
+					v_index = 0.;
+				}
+			`);
+		const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER,
+			`#version 300 es
+				precision mediump float;
+				const int NUM_TEXTURES = 16;
+				uniform sampler2D uTextures[NUM_TEXTURES];
+				in vec2 v_textureCoord;
+				in float v_index;
+				out vec4 outColor;
+
+				vec4 getTextureColor(float textureSlot, vec2 vTexturePoint);
+
+				void main() {
+					vec4 color = getTextureColor(v_index, v_textureCoord);
+					outColor = vec4(color.xyzw);
+				}
+
+				const float threshold = 0.00001;
+				vec4 getTextureColor(float textureSlot, vec2 vTexturePoint) {
+					if (abs(0.0 - textureSlot) < threshold) {
+						return texture(uTextures[0], vTexturePoint);
+					}
+					if (abs(1.0 - textureSlot) < threshold) {
+						return texture(uTextures[1], vTexturePoint);
+					}
+					if (abs(2.0 - textureSlot) < threshold) {
+						return texture(uTextures[2], vTexturePoint);
+					}
+					if (abs(3.0 - textureSlot) < threshold) {
+						return texture(uTextures[3], vTexturePoint);
+					}
+					if (abs(4.0 - textureSlot) < threshold) {
+						return texture(uTextures[4], vTexturePoint);
+					}
+					if (abs(5.0 - textureSlot) < threshold) {
+						return texture(uTextures[5], vTexturePoint);
+					}
+					if (abs(6.0 - textureSlot) < threshold) {
+						return texture(uTextures[6], vTexturePoint);
+					}
+					if (abs(7.0 - textureSlot) < threshold) {
+						return texture(uTextures[7], vTexturePoint);
+					}
+					if (abs(8.0 - textureSlot) < threshold) {
+						return texture(uTextures[8], vTexturePoint);
+					}
+					if (abs(9.0 - textureSlot) < threshold) {
+						return texture(uTextures[9], vTexturePoint);
+					}
+					if (abs(10.0 - textureSlot) < threshold) {
+						return texture(uTextures[10], vTexturePoint);
+					}
+					if (abs(11.0 - textureSlot) < threshold) {
+						return texture(uTextures[11], vTexturePoint);
+					}
+					if (abs(12.0 - textureSlot) < threshold) {
+						return texture(uTextures[12], vTexturePoint);
+					}
+					if (abs(13.0 - textureSlot) < threshold) {
+						return texture(uTextures[13], vTexturePoint);
+					}
+					if (abs(14.0 - textureSlot) < threshold) {
+						return texture(uTextures[14], vTexturePoint);
+					}
+					if (abs(15.0 - textureSlot) < threshold) {
+						return texture(uTextures[15], vTexturePoint);
+					}
+					return texture(uTextures[0], vTexturePoint);
+				}
+			`);
+		gl.attachShader(program, vertexShader);
+		gl.attachShader(program, fragmentShader);
+		gl.linkProgram(program);
+		gl.detachShader(program, vertexShader);
+		gl.detachShader(program, fragmentShader);
+		gl.deleteShader(vertexShader);
+		gl.deleteShader(fragmentShader);
+		gl.useProgram(program);		
+
+		gl.viewport(0,0,canvas.width,canvas.height);
+		gl.clearColor(1, 1, 1, 1);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+
+		const vertices = new Float32Array([
+			-1,1,0.0, 
+			-1,-1,0.0,
+			1,-1,0.0,
+			-1,1,0.0, 
+			1,-1,0.0,
+			1,1,0.0,
+		]);
+
+		const vertexBuf = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuf);
+		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+		const coord = gl.getAttribLocation(program, "vertexPosition");
+		gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
+		gl.enableVertexAttribArray(coord);
+
+		const textureLocation = gl.getUniformLocation(program, "uTextures");
+		const textureManager = new TextureManager(gl, textureLocation);
+		await textureManager.init();
+		const images = [
+			"https://jacklehamster.github.io/art/Random/minok-valentine.jpeg",
+			"https://jacklehamster.github.io/art/icon.png",
+			"https://jacklehamster.github.io/art/Random/baby-hitler-title%20(3)%20(2).png",
+			"https://jacklehamster.github.io/art/Random/minok2.jpeg",
+			"https://jacklehamster.github.io/art/Random/snake.jpeg",
+			"https://jacklehamster.github.io/art/Random/duckrun.jpeg",
+			"https://jacklehamster.github.io/art/Random/eye.png",
+		];
+
+		for (let url of images) {
+			const anim = await textureManager.addTexture({url});
+			console.log(anim);
+			gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
+		}
+
+	});
 </script>
 <hr>
 <hr>
@@ -8,4 +145,21 @@ Code:
 <pre id="code" style="border: 1px solid black; padding: 5px; background-color: #FFFFcc"></pre>
 <script>
 	document.getElementById("code").textContent = document.getElementById("code-javascript").textContent;
+</script>
+
+
+<script type="text/javascript">
+	function createShader(gl, type, source) {
+		const shader = gl.createShader(type);
+		gl.shaderSource(shader, source);
+		gl.compileShader(shader);
+
+		if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+		  // Something went wrong during compilation; get the error
+		  console.error(`Shader compile error:` + gl.getShaderInfoLog(shader));
+		}
+		return shader;
+	}
+
+
 </script>

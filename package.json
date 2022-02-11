@@ -4,6 +4,8 @@
   "description": "System for arranging WebGL texture",
   "main": "src/index.js",
   "scripts": {
+    "install-if-needed": "if [ package.json -nt node_modules ]; then npm install && touch node_modules; fi",
+    "prestart": "npm run install-if-needed",
     "test": "mocha src/index.test.js",
     "browserify": "browserify src/index.js -o public/texture-manager.js",
     "start": "node demo.js",
@@ -27,6 +29,8 @@
     "np": "^7.6.0"
   },
   "dependencies": {
+    "direct-data": "^1.0.8",
+    "dok-file-utils": "^1.0.7",
     "express": "^4.17.1",
     "express-static": "^1.2.6",
     "icon-gen": "^3.0.0"
