@@ -5,7 +5,6 @@ Rearrange and store textures for use in WebGL
 
 [![pages-build-deployment](https://github.com/jacklehamster/texture-manager/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/jacklehamster/texture-manager/actions/workflows/pages/pages-build-deployment)
 
-[![pmd](https://github.com/jacklehamster/texture-manager/actions/workflows/pmd-analysis.yml/badge.svg)](https://github.com/jacklehamster/texture-manager/actions/workflows/pmd-analysis.yml)
 
 ## Setup
 
