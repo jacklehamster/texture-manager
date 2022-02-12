@@ -1,5 +1,6 @@
 const { TextureAtlas } = require("./texture-atlas");
 const { TextureEdgeCalculator } = require("./texture-edge-calculator");
+const { SlotAllocator } = require('./slot-allocator');
 const { ImageLoader } = require('dok-file-utils');
 
 class TextureManager {
@@ -11,13 +12,21 @@ class TextureManager {
 		this.textureSize = 4096;
 		this.maxTextureIndex = 0;
 		this.urlToTextureIndex = {};
-		this.nextTextureIndex = 0;
 		this.activeTexture = -1;
 
 		this.glTextures = this.initTextureLocation(gl, textureUniformLocation);
 		this.fullTextures = this.glTextures.map((_, index) => this.createAtlas(index).setFullTexture());
-		this.textureFills = this.glTextures.map(() => 0);
+		this.slotAllocator = new SlotAllocator(this.glTextures.length, this.textureSize);
 		this.canvas = document.createElement("canvas");
+		
+		this.tempMatrix = new Float32Array([
+			0, 0, 0, 0,
+			0, 0, 0, 0,
+			0, 0, 0, 0,
+			0, 0, 0, 0,
+		]);
+		this.shortVec4 = new Uint16Array(4);
+		this.floatVec4 = new Float32Array(4);
 	}
 
 	async init() {
@@ -55,9 +64,8 @@ class TextureManager {
 
 	clear() {
 		this.maxTextureIndex = 0;
-		this.nextTextureIndex = 0;
 		this.urlToTextureIndex = {};
-		this.textureFills.fill(0);
+		this.slotAllocator.clear();
 		this.activeTexture = -1;
 	}
 
@@ -81,25 +89,17 @@ class TextureManager {
 
 	async addTexture(imageConfig) {
 		const { url, collision_url, texture_url } = imageConfig;
-		const [image, textureImage, collisionImage] = await Promise.all([url,texture_url, collision_url].map(u => this.imageLoader.loadImage(u)));
+		const [image, textureImage, collisionImage] = await Promise.all([url?.split("?")[0] ,texture_url?.split("?")[0], collision_url?.split("?")[0]].map(u => this.imageLoader.loadImage(u)));
 
-		const imageHeight = image?.naturalHeight || 0;
-		const fitInCurrentTexture = this.textureFills[this.nextTextureIndex] + imageHeight <= this.textureSize;
-
-		const index = !url ? -1 
-						: this.urlToTextureIndex[url]
-						? this.urlToTextureIndex[url].index
-						: fitInCurrentTexture
-						? this.nextTextureIndex
-						: ++this.nextTextureIndex;
-		const yOffset = this.urlToTextureIndex[url] ? this.urlToTextureIndex[url].yOffset : this.textureFills[this.nextTextureIndex];
-
-		if (!this.urlToTextureIndex[url]) {
-			this.urlToTextureIndex[url] = { index, yOffset };
-			this.textureFills[this.nextTextureIndex] += imageHeight;
+		if (this.urlToTextureIndex[url]) {
+			const {index, x, y} = this.urlToTextureIndex[url];
+			return this.createAtlas(index, x, y).setImage(imageConfig, image, textureImage, collisionImage);
 		}
 
-		return this.createAtlas(index, 0, yOffset).setImage(imageConfig, image, textureImage, collisionImage);
+		const imageWidth = image?.naturalWidth || 0;
+		const imageHeight = image?.naturalHeight || 0;
+		const { x, y, index } = this.urlToTextureIndex[url] = this.slotAllocator.allocate(imageWidth, imageHeight);
+		return this.createAtlas(index, x, y).setImage(imageConfig, image, textureImage, collisionImage);
 	}
 
 	textureMix(image, texture, texture_alpha, texture_blend) {

@@ -13,14 +13,9 @@ class TextureAtlas {
 		this.endIndex = 0;
 		this.hotspot = [0, 0];
 
-		this.tempMatrix = new Float32Array([
-			0, 0, 0, 0,
-			0, 0, 0, 0,
-			0, 0, 0, 0,
-			0, 0, 0, 0,
-		]);
-		this.shortVec4 = new Uint16Array(4);
-		this.floatVec4 = new Float32Array(4);
+		this.tempMatrix = textureManager.tempMatrix;
+		this.shortVec4 = textureManager.shortVec4;
+		this.floatVec4 = textureManager.floatVec4;
 	}
 
 	setFullTexture() {
@@ -111,6 +106,14 @@ class TextureAtlas {
 		this.firstFrame = Math.max(this.startFrame, Math.min(this.endFrame, firstFrame || this.startFrame));
 		this.direction = direction || 1;
 		this.vdirection = vdirection || 1;
+	}
+
+	get spriteSheetWidth() {
+		return this.spriteWidth * this.cols;
+	}
+
+	get spriteSheetHeight() {
+		return this.spriteHeight * this.rows;
 	}
 
 	getTextureCoordinatesFromRect(x, y, width, height, direction, vdirection) {

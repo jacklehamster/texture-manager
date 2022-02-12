@@ -283,14 +283,150 @@ module.exports = {
 },{"./file-utils":5,"./image-loader":6}],8:[function(require,module,exports){
 const { TextureManager } = require("./texture-manager");
 const { TextureUtils } = require("./texture-utils");
+const { SlotAllocator } = require("./slot-allocator");
 
 
 module.exports = {
 	TextureManager,
 	TextureUtils,
+	SlotAllocator,
 };
 
-},{"./texture-manager":11,"./texture-utils":12}],9:[function(require,module,exports){
+},{"./slot-allocator":9,"./texture-manager":13,"./texture-utils":14}],9:[function(require,module,exports){
+const { Slot } = require('./slot');
+
+class SlotAllocator {
+	constructor(count, textureSize) {
+		this.slots = new Set();
+		this.count = count;
+		this.textureSize = textureSize;
+		this.clear();
+	}
+
+	clear() {
+		this.slots.clear();
+		for (let index = 0; index < this.count; index++) {
+			this.add(new Slot(0, 0, this.textureSize, this.textureSize, index));
+		}
+	}
+
+	findBestFitSlot(width, height) {
+		let smallestSlot = null;
+		let smallestSize = Number.MAX_SAFE_INTEGER;
+		for (let slot of this.slots) {
+			if (slot.doesFit(width, height)) {
+				const slotSize = slot.size();
+				if (slotSize < smallestSize) {
+					smallestSlot = slot;
+					smallestSize = slotSize;
+				}
+			}
+		}
+		return smallestSlot;
+	}
+
+	add(slot) {
+		this.slots.add(slot);
+		slot.allocator = this;
+	}
+
+	remove(slot) {
+		this.slots.delete(slot);
+		slot.allocator = null;
+	}
+
+	allocate(width, height) {
+		const slot = this.findBestFitSlot(width, height);
+		return slot.allocate(width, height);
+	}
+}
+
+module.exports = {
+  SlotAllocator,
+};
+
+},{"./slot":10}],10:[function(require,module,exports){
+class Slot {
+	constructor(x, y, width, height, index) {
+		this.x = x;
+		this.y = y;
+		this.width = width;
+		this.height = height;
+		this.index = index;
+		this.blockingSlots = new Set();
+	}
+
+	crossBlock(slot) {
+		if (!slot.isValid() || !this.isValid()) {
+			return;
+		}
+		this.blockingSlots.add(slot);
+		slot.blockingSlots.add(this);
+	}
+
+	doesFit(width, height) {
+		return width <= this.width && height <= this.height;
+	}
+
+	size() {
+		return this.width * this.height;
+	}
+
+	isValid() {
+		return this.width > 0  && this.height > 0;
+	}
+
+	occupy() {
+		for (let slot of this.blockingSlots) {
+			this.allocator.remove(slot);
+		}
+		this.allocator.remove(this);
+	}
+
+	allocate(width, height) {
+		const bigRightSlot = new Slot(this.x + width, this.y, this.width - width, this.height, this.index);
+		if (bigRightSlot.isValid()) {
+			this.allocator.add(bigRightSlot);
+		}
+		const smallBottomSlot = new Slot(this.x, this.y + height, width, this.height - height, this.index);
+		if (smallBottomSlot.isValid()) {
+			this.allocator.add(smallBottomSlot);
+		}
+		const smallRightSlot = new Slot(this.x + width, this.y, this.width - width, height, this.index);
+		if (smallRightSlot.isValid()) {
+			this.allocator.add(smallRightSlot);
+		}
+		const bigBottomSlot = new Slot(this.x, this.y + height, this.width, this.height - height, this.index);
+		if (bigBottomSlot.isValid()) {
+			this.allocator.add(bigBottomSlot);
+		}
+		const cornerSlot = new Slot(this.x + width, this.y + height, this.width - width, this.height - height, this.index);
+		if (cornerSlot.isValid()) {
+			this.allocator.add(cornerSlot);
+		}
+
+		bigRightSlot.crossBlock(bigBottomSlot);
+		bigRightSlot.crossBlock(smallRightSlot);
+		bigBottomSlot.crossBlock(smallBottomSlot);
+		bigRightSlot.crossBlock(cornerSlot);
+		bigBottomSlot.crossBlock(cornerSlot);
+
+		this.occupy(this.x,this.y,width,height);
+
+		return {
+			x: this.x,
+			y: this.y,
+			index: this.index,
+		};
+	}
+}
+
+
+module.exports = {
+  Slot,
+};
+
+},{}],11:[function(require,module,exports){
 const MAX_FRAME_COUNT = Number.MAX_SAFE_INTEGER;
 
 class TextureAtlas {
@@ -306,14 +442,9 @@ class TextureAtlas {
 		this.endIndex = 0;
 		this.hotspot = [0, 0];
 
-		this.tempMatrix = new Float32Array([
-			0, 0, 0, 0,
-			0, 0, 0, 0,
-			0, 0, 0, 0,
-			0, 0, 0, 0,
-		]);
-		this.shortVec4 = new Uint16Array(4);
-		this.floatVec4 = new Float32Array(4);
+		this.tempMatrix = textureManager.tempMatrix;
+		this.shortVec4 = textureManager.shortVec4;
+		this.floatVec4 = textureManager.floatVec4;
 	}
 
 	setFullTexture() {
@@ -406,6 +537,14 @@ class TextureAtlas {
 		this.vdirection = vdirection || 1;
 	}
 
+	get spriteSheetWidth() {
+		return this.spriteWidth * this.cols;
+	}
+
+	get spriteSheetHeight() {
+		return this.spriteHeight * this.rows;
+	}
+
 	getTextureCoordinatesFromRect(x, y, width, height, direction, vdirection) {
 		let x0 = x;
 		let x1 = x + width;
@@ -458,7 +597,7 @@ module.exports = {
   TextureAtlas,
 };
 
-},{}],10:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 const { DirectData } = require("direct-data");
 
 
@@ -588,9 +727,10 @@ module.exports = {
 	TextureEdgeCalculator,
 };
 
-},{"direct-data":4}],11:[function(require,module,exports){
+},{"direct-data":4}],13:[function(require,module,exports){
 const { TextureAtlas } = require("./texture-atlas");
 const { TextureEdgeCalculator } = require("./texture-edge-calculator");
+const { SlotAllocator } = require('./slot-allocator');
 const { ImageLoader } = require('dok-file-utils');
 
 class TextureManager {
@@ -602,13 +742,21 @@ class TextureManager {
 		this.textureSize = 4096;
 		this.maxTextureIndex = 0;
 		this.urlToTextureIndex = {};
-		this.nextTextureIndex = 0;
 		this.activeTexture = -1;
 
 		this.glTextures = this.initTextureLocation(gl, textureUniformLocation);
 		this.fullTextures = this.glTextures.map((_, index) => this.createAtlas(index).setFullTexture());
-		this.textureFills = this.glTextures.map(() => 0);
+		this.slotAllocator = new SlotAllocator(this.glTextures.length, this.textureSize);
 		this.canvas = document.createElement("canvas");
+		
+		this.tempMatrix = new Float32Array([
+			0, 0, 0, 0,
+			0, 0, 0, 0,
+			0, 0, 0, 0,
+			0, 0, 0, 0,
+		]);
+		this.shortVec4 = new Uint16Array(4);
+		this.floatVec4 = new Float32Array(4);
 	}
 
 	async init() {
@@ -646,9 +794,8 @@ class TextureManager {
 
 	clear() {
 		this.maxTextureIndex = 0;
-		this.nextTextureIndex = 0;
 		this.urlToTextureIndex = {};
-		this.textureFills.fill(0);
+		this.slotAllocator.clear();
 		this.activeTexture = -1;
 	}
 
@@ -672,25 +819,17 @@ class TextureManager {
 
 	async addTexture(imageConfig) {
 		const { url, collision_url, texture_url } = imageConfig;
-		const [image, textureImage, collisionImage] = await Promise.all([url,texture_url, collision_url].map(u => this.imageLoader.loadImage(u)));
+		const [image, textureImage, collisionImage] = await Promise.all([url?.split("?")[0] ,texture_url?.split("?")[0], collision_url?.split("?")[0]].map(u => this.imageLoader.loadImage(u)));
 
-		const imageHeight = image?.naturalHeight || 0;
-		const fitInCurrentTexture = this.textureFills[this.nextTextureIndex] + imageHeight <= this.textureSize;
-
-		const index = !url ? -1 
-						: this.urlToTextureIndex[url]
-						? this.urlToTextureIndex[url].index
-						: fitInCurrentTexture
-						? this.nextTextureIndex
-						: ++this.nextTextureIndex;
-		const yOffset = this.urlToTextureIndex[url] ? this.urlToTextureIndex[url].yOffset : this.textureFills[this.nextTextureIndex];
-
-		if (!this.urlToTextureIndex[url]) {
-			this.urlToTextureIndex[url] = { index, yOffset };
-			this.textureFills[this.nextTextureIndex] += imageHeight;
+		if (this.urlToTextureIndex[url]) {
+			const {index, x, y} = this.urlToTextureIndex[url];
+			return this.createAtlas(index, x, y).setImage(imageConfig, image, textureImage, collisionImage);
 		}
 
-		return this.createAtlas(index, 0, yOffset).setImage(imageConfig, image, textureImage, collisionImage);
+		const imageWidth = image?.naturalWidth || 0;
+		const imageHeight = image?.naturalHeight || 0;
+		const { x, y, index } = this.urlToTextureIndex[url] = this.slotAllocator.allocate(imageWidth, imageHeight);
+		return this.createAtlas(index, x, y).setImage(imageConfig, image, textureImage, collisionImage);
 	}
 
 	textureMix(image, texture, texture_alpha, texture_blend) {
@@ -729,7 +868,7 @@ module.exports = {
 
 globalThis.TextureManager = TextureManager;
 
-},{"./texture-atlas":9,"./texture-edge-calculator":10,"dok-file-utils":7}],12:[function(require,module,exports){
+},{"./slot-allocator":9,"./texture-atlas":11,"./texture-edge-calculator":12,"dok-file-utils":7}],14:[function(require,module,exports){
 class TextureUtils {
 	static async makeAtlases(engine, atlasConfig) {
 		const flattened = TextureUtils.flattenAtlases(atlasConfig || {}, [], []);
