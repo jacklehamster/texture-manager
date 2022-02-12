@@ -744,11 +744,6 @@ class TextureManager {
 		this.urlToTextureIndex = {};
 		this.activeTexture = -1;
 
-		this.glTextures = this.initTextureLocation(gl, textureUniformLocation);
-		this.fullTextures = this.glTextures.map((_, index) => this.createAtlas(index).setFullTexture());
-		this.slotAllocator = new SlotAllocator(this.glTextures.length, this.textureSize);
-		this.canvas = document.createElement("canvas");
-		
 		this.tempMatrix = new Float32Array([
 			0, 0, 0, 0,
 			0, 0, 0, 0,
@@ -757,7 +752,12 @@ class TextureManager {
 		]);
 		this.shortVec4 = new Uint16Array(4);
 		this.floatVec4 = new Float32Array(4);
-	}
+
+		this.glTextures = this.initTextureLocation(gl, textureUniformLocation);
+		this.fullTextures = this.glTextures.map((_, index) => this.createAtlas(index).setFullTexture());
+		this.slotAllocator = new SlotAllocator(this.glTextures.length, this.textureSize);
+		this.canvas = document.createElement("canvas");
+			}
 
 	async init() {
 		return this.textureEdgeCalculator.init();
