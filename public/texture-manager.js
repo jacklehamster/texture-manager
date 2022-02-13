@@ -312,13 +312,13 @@ class SlotAllocator {
 
 	findBestFitSlot(width, height) {
 		let smallestSlot = null;
-		let smallestSize = Number.MAX_SAFE_INTEGER;
 		for (let slot of this.slots) {
 			if (slot.doesFit(width, height)) {
 				const slotSize = slot.size();
-				if (slotSize < smallestSize) {
+				const smallestSlotSize = smallestSlot?.size();
+				if (!smallestSlot || slotSize < smallestSlotSize
+						|| slotSize === smallestSlotSize && slot.index < smallestSlot.index) {
 					smallestSlot = slot;
-					smallestSize = slotSize;
 				}
 			}
 		}
