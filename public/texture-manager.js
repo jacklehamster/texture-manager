@@ -561,9 +561,9 @@ class TextureAtlas {
 		}
 
 		const tempMatrix = this.tempMatrix;
-		tempMatrix[0]  = x0; tempMatrix[1]  = y1;
-		tempMatrix[4]  = x1; tempMatrix[5]  = y1;
-		tempMatrix[8]  = x0; tempMatrix[9]  = y0;
+		tempMatrix[0] = x0; tempMatrix[1] = y1;
+		tempMatrix[4] = x1; tempMatrix[5] = y1;
+		tempMatrix[8] = x0; tempMatrix[9] = y0;
 		tempMatrix[12] = x1; tempMatrix[13] = y0;
 		return this.tempMatrix;
 	}
@@ -582,10 +582,10 @@ class TextureAtlas {
 		return shortVec4;
 	}
 
-	getAnimationInfo() {
+	getAnimationInfo(options) {
 		const floatVec4 = this.floatVec4;
-		floatVec4[0] = this.startFrame;
-		floatVec4[1] = this.endFrame;
+		floatVec4[0] = options?.fixedFrame ?? this.startFrame;
+		floatVec4[1] = options?.fixedFrame ?? this.endFrame;
 		floatVec4[2] = this.frameRate * this.frameRateMultiplier;
 		floatVec4[3] = this.maxFrameCount;
 		return floatVec4;
@@ -594,7 +594,7 @@ class TextureAtlas {
 
 
 module.exports = {
-  TextureAtlas,
+	TextureAtlas,
 };
 
 },{}],12:[function(require,module,exports){
