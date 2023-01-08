@@ -53,6 +53,8 @@ class TextureUtils {
 			Object.keys(object).forEach(id => {
 				TextureUtils.flattenAtlases(object[id], path.concat(id), array);
 			});
+		} else if (typeof(object) === "string") {
+			//	ignore.
 		} else {
 			console.warn("What is object? => ", object)
 		}
