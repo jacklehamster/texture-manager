@@ -107,7 +107,7 @@ class TextureManager {
 	}
 
 	generateMipMap() {
-		this.gl.generateMipmap(gl.TEXTURE_2D);
+		this.gl.generateMipmap(this.gl.TEXTURE_2D);
 		for (let listener of this.mipmapListeners) {
 			listener();
 		}
