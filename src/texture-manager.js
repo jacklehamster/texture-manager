@@ -99,9 +99,7 @@ class TextureManager {
 		if (this.config.autoMipMap) {
 			if (this.config.delayMipMap) {
 				clearTimeout(this.timeout);
-				this.timeout = setTimeout(() => {
-					this.generateMipMap();
-				}, this.config.delayMipMap);
+				this.timeout = setTimeout(() => this.generateMipMap(), this.config.delayMipMap);
 			} else {
 				this.generateMipMap();
 			}
@@ -116,6 +114,13 @@ class TextureManager {
 				this.activateTexture(index);
 				gl.bindTexture(gl.TEXTURE_2D, glTexture.texture);
 				gl.generateMipmap(gl.TEXTURE_2D);
+				if (this.config.delayMipMap) {
+					this.mipmapToGenerate.delete(index);
+					if (this.mipmapToGenerate.size) {
+						this.timeout = setTimeout(() => this.generateMipMap(), this.config.delayMipMap);
+						return;	
+					}
+				}
 			}
 			this.mipmapToGenerate.clear();
 			for (let listener of this.mipmapListeners) {
