@@ -113,6 +113,7 @@ class TextureManager {
 		if (this.mipmapToGenerate.size) {
 			for (let index of this.mipmapToGenerate) {
 				const glTexture = glTextures[index];
+				this.activateTexture(index);
 				gl.bindTexture(gl.TEXTURE_2D, glTexture.texture);
 				gl.generateMipmap(gl.TEXTURE_2D);
 			}
