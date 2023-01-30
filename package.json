@@ -1,6 +1,6 @@
 {
   "name": "texture-manager",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "System for arranging WebGL texture",
   "main": "src/index.js",
   "scripts": {
