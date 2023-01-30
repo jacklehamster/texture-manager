@@ -129,6 +129,10 @@ class FileUtils {
         this.fileStock = {};
     }
 
+    setOverride(override) {
+        this.override = override;
+    }
+
     async preload(...urls) {
         return Promise.all(urls.map(async url => {
             return await this.load(url);
@@ -136,9 +140,14 @@ class FileUtils {
     }
 
     async load(url, responseType) {
+        if (this.override?.[url]) {
+            return this.override?.[url];
+        }
         return !url ? Promise.resolve(null) : new Promise((resolve, reject) => {
-            if (this.fileStock[url]) {
-                const { data, loaded, onLoadListeners } = this.fileStock[url];
+            const realResponseType = responseType || (url.match(/.(json)$/i) ? "json" : 'blob');
+            const tag = [url, realResponseType].join("|");
+            if (this.fileStock[tag]) {
+                const { data, loaded, onLoadListeners } = this.fileStock[tag];
                 if (!loaded) {
                     onLoadListeners.push(resolve);
                 } else {
@@ -146,23 +155,23 @@ class FileUtils {
                 }
             } else {
                 const req = new this.XMLHttpRequest();
-                this.fileStock[url] = {
+                this.fileStock[tag] = {
                     data: null,
                     url,
                     progress: 0,
                     onLoadListeners: [],
                 };
                 req.open('GET', url);
-                req.responseType = responseType || (url.match(/.(json)$/i) ? "json" : 'blob');
+                req.responseType = realResponseType;
 
                 req.addEventListener('load', e => {
                     if (req.status === 200) {
                         const data = req.response;
-                        this.fileStock[url].progress = 1;
-                        this.fileStock[url].loaded = true;
-                        this.fileStock[url].data = data;
-                        this.fileStock[url].onLoadListeners.forEach(callback => callback(data));
-                        delete this.fileStock[url].onLoadListeners;
+                        this.fileStock[tag].progress = 1;
+                        this.fileStock[tag].loaded = true;
+                        this.fileStock[tag].data = data;
+                        this.fileStock[tag].onLoadListeners.forEach(callback => callback(data));
+                        delete this.fileStock[tag].onLoadListeners;
                         resolve(data);
                     }
                     else {
@@ -173,7 +182,7 @@ class FileUtils {
                     reject(new Error("Network Error"));
                 });
                 req.addEventListener('progress', e => {
-                    this.fileStock[url].progress = e.loaded / e.total;
+                    this.fileStock[tag].progress = e.loaded / e.total;
                 });
                 req.send();
             }
@@ -733,8 +742,13 @@ const { TextureEdgeCalculator } = require("./texture-edge-calculator");
 const { SlotAllocator } = require('./slot-allocator');
 const { ImageLoader } = require('dok-file-utils');
 
+const DEFAULT_CONFIG = {
+	autoMipMap: true,
+	delayMipMap: 0,
+};
+
 class TextureManager {
-	constructor(gl, textureUniformLocation, imageLoader, assetMd5) {
+	constructor(gl, textureUniformLocation, imageLoader, assetMd5, config) {
 		this.gl = gl;
 		this.textureEdgeCalculator = new TextureEdgeCalculator(assetMd5);
 		this.imageLoader = imageLoader || new ImageLoader();
@@ -757,7 +771,12 @@ class TextureManager {
 		this.fullTextures = this.glTextures.map((_, index) => this.createAtlas(index).setFullTexture());
 		this.slotAllocator = new SlotAllocator(this.glTextures.length, this.textureSize);
 		this.canvas = document.createElement("canvas");
-			}
+		this.config = {
+			...DEFAULT_CONFIG,
+			...config,
+		};
+		this.mipmapListeners = new Set();
+	}
 
 	async init() {
 		return this.textureEdgeCalculator.init();
@@ -814,7 +833,27 @@ class TextureManager {
 	  		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
 		}
 		gl.texSubImage2D(gl.TEXTURE_2D, 0, x || 0, y || 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-		gl.generateMipmap(gl.TEXTURE_2D);
+		if (this.config.autoMipMap) {
+			if (this.config.delayMipMap) {
+				clearTimeout(this.timeout);
+				this.timeout = setTimeout(() => {
+					this.generateMipMap();
+				}, this.config.delayMipMap);
+			} else {
+				this.generateMipMap();
+			}
+		}
+	}
+
+	generateMipMap() {
+		this.gl.generateMipmap(gl.TEXTURE_2D);
+		for (let listener of this.mipmapListeners) {
+			listener();
+		}
+	}
+
+	addMipMapListener(listener) {
+		this.mipmapListeners.add(listener);
 	}
 
 	async addTexture(imageConfig) {
@@ -924,6 +963,8 @@ class TextureUtils {
 			Object.keys(object).forEach(id => {
 				TextureUtils.flattenAtlases(object[id], path.concat(id), array);
 			});
+		} else if (typeof(object) === "string") {
+			//	ignore.
 		} else {
 			console.warn("What is object? => ", object)
 		}

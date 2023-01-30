@@ -152,7 +152,7 @@
 		gl.enableVertexAttribArray(coord);
 
 		const textureLocation = gl.getUniformLocation(program, "uTextures");
-		textureManager = new TextureManager(gl, textureLocation);
+		textureManager = new TextureManager(gl, textureLocation, null, null, {autoMipMap: true, delayMipMap: 300});
 		await textureManager.init();
 		const images = [
 			"https://jacklehamster.github.io/art/Random/minok2.jpeg",
@@ -172,6 +172,10 @@
 			const image = imageDivs.appendChild(document.createElement("img"));
 			setupImage(image, url);
 		}
+
+		textureManager.addMipMapListener(() => {
+			gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
+		});
 
 		selectTexture(0);
 		window.textureManager = textureManager;

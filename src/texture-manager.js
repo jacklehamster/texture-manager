@@ -3,8 +3,13 @@ const { TextureEdgeCalculator } = require("./texture-edge-calculator");
 const { SlotAllocator } = require('./slot-allocator');
 const { ImageLoader } = require('dok-file-utils');
 
+const DEFAULT_CONFIG = {
+	autoMipMap: true,
+	delayMipMap: 0,
+};
+
 class TextureManager {
-	constructor(gl, textureUniformLocation, imageLoader, assetMd5) {
+	constructor(gl, textureUniformLocation, imageLoader, assetMd5, config) {
 		this.gl = gl;
 		this.textureEdgeCalculator = new TextureEdgeCalculator(assetMd5);
 		this.imageLoader = imageLoader || new ImageLoader();
@@ -27,7 +32,12 @@ class TextureManager {
 		this.fullTextures = this.glTextures.map((_, index) => this.createAtlas(index).setFullTexture());
 		this.slotAllocator = new SlotAllocator(this.glTextures.length, this.textureSize);
 		this.canvas = document.createElement("canvas");
-			}
+		this.config = {
+			...DEFAULT_CONFIG,
+			...config,
+		};
+		this.mipmapListeners = new Set();
+	}
 
 	async init() {
 		return this.textureEdgeCalculator.init();
@@ -84,7 +94,27 @@ class TextureManager {
 	  		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
 		}
 		gl.texSubImage2D(gl.TEXTURE_2D, 0, x || 0, y || 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-		gl.generateMipmap(gl.TEXTURE_2D);
+		if (this.config.autoMipMap) {
+			if (this.config.delayMipMap) {
+				clearTimeout(this.timeout);
+				this.timeout = setTimeout(() => {
+					this.generateMipMap();
+				}, this.config.delayMipMap);
+			} else {
+				this.generateMipMap();
+			}
+		}
+	}
+
+	generateMipMap() {
+		this.gl.generateMipmap(gl.TEXTURE_2D);
+		for (let listener of this.mipmapListeners) {
+			listener();
+		}
+	}
+
+	addMipMapListener(listener) {
+		this.mipmapListeners.add(listener);
 	}
 
 	async addTexture(imageConfig) {
