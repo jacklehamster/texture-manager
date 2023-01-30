@@ -37,6 +37,7 @@ class TextureManager {
 			...config,
 		};
 		this.mipmapListeners = new Set();
+		this.mipmapToGenerate = new Set();
 	}
 
 	async init() {
@@ -94,6 +95,7 @@ class TextureManager {
 	  		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR);
 		}
 		gl.texSubImage2D(gl.TEXTURE_2D, 0, x || 0, y || 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+		this.mipmapToGenerate.add(index);
 		if (this.config.autoMipMap) {
 			if (this.config.delayMipMap) {
 				clearTimeout(this.timeout);
@@ -107,9 +109,17 @@ class TextureManager {
 	}
 
 	generateMipMap() {
-		this.gl.generateMipmap(this.gl.TEXTURE_2D);
-		for (let listener of this.mipmapListeners) {
-			listener();
+		const { gl, glTextures } = this;
+		if (this.mipmapToGenerate.size) {
+			for (let index of this.mipmapToGenerate) {
+				const glTexture = glTextures[index];
+				gl.bindTexture(gl.TEXTURE_2D, glTexture.texture);
+				gl.generateMipmap(gl.TEXTURE_2D);
+			}
+			this.mipmapToGenerate.clear();
+			for (let listener of this.mipmapListeners) {
+				listener();
+			}
 		}
 	}
 
