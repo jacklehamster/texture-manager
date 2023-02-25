@@ -748,9 +748,9 @@ const DEFAULT_CONFIG = {
 };
 
 class TextureManager {
-	constructor(gl, textureUniformLocation, imageLoader, assetMd5, config) {
+	constructor(gl, textureUniformLocation, imageLoader, assetMd5, config, directData) {
 		this.gl = gl;
-		this.textureEdgeCalculator = new TextureEdgeCalculator(assetMd5);
+		this.textureEdgeCalculator = new TextureEdgeCalculator(assetMd5, directData);
 		this.imageLoader = imageLoader || new ImageLoader();
 		this.glTextures = [];
 		this.textureSize = 4096;
