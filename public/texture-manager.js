@@ -613,9 +613,9 @@ const { DirectData } = require("direct-data");
 const TEXTURE_EDGE_CALCULATOR_DATA_PATH = "texture/texture-edge-data.json";
 
 class TextureEdgeCalculator {
-	constructor(assetMd5) {
+	constructor(assetMd5, directData) {
 		this.assetMd5 = assetMd5 || {};
-		this.directData = new DirectData();
+		this.directData = directData ?? new DirectData();
 		this.textureEdgeData = {};
 		this.canvas = document.createElement("canvas");
 	}
