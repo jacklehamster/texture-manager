@@ -127,10 +127,16 @@ class FileUtils {
     constructor(XMLHttpRequest) {
         this.XMLHttpRequest = XMLHttpRequest || globalThis.XMLHttpRequest;
         this.fileStock = {};
+        this.override = null;
+        this.extensionProcessors = {};
     }
 
     setOverride(override) {
         this.override = override;
+    }
+
+    addExtensionProcessor(extension, processor) {
+        this.extensionProcessors[extension] = processor;
     }
 
     async preload(...urls) {
@@ -144,7 +150,9 @@ class FileUtils {
             return this.override?.[url];
         }
         return !url ? Promise.resolve(null) : new Promise((resolve, reject) => {
-            const realResponseType = responseType || (url.match(/.(json)$/i) ? "json" : 'blob');
+            const extension = url.split(".").pop();
+            const extensionProcessor = this.extensionProcessors[extension];
+            const realResponseType = responseType ?? extensionProcessor?.responseType ?? (url.match(/.(json)$/i) ? "json" : 'blob');
             const tag = [url, realResponseType].join("|");
             if (this.fileStock[tag]) {
                 const { data, loaded, onLoadListeners } = this.fileStock[tag];
@@ -164,9 +172,9 @@ class FileUtils {
                 req.open('GET', url);
                 req.responseType = realResponseType;
 
-                req.addEventListener('load', e => {
+                req.addEventListener('load', async (e) => {
                     if (req.status === 200) {
-                        const data = req.response;
+                        const data = extensionProcessor?.process ? await extensionProcessor.process(req.response) : req.response;
                         this.fileStock[tag].progress = 1;
                         this.fileStock[tag].loaded = true;
                         this.fileStock[tag].data = data;
@@ -205,7 +213,10 @@ class ImageLoader {
 		this.imageStock = {};
 	}
 
-	async getBlobUrl(url) {
+	async getBlobUrl(url, forcePreserve) {
+		if (forcePreserve) {
+			this.preserve[url] = true;
+		}
 		await this.loadImage(url);
 		return this.preserve[url] ? this.imageStock[url]?.img.src : null; 
 	}
@@ -239,7 +250,7 @@ class ImageLoader {
 
 			    req.addEventListener('load', e => {
 			    	if (req.status === 200) {
-						if (url.match(/.(jpg|jpeg|png|gif)$/i)) {
+						if (url.match(/.(jpg|jpeg|png|gif|svg)$/i)) {
 							const imageURL = URL.createObjectURL(req.response);
 							const { img } = this.imageStock[url];
 							img.addEventListener("load", () => {
@@ -528,8 +539,8 @@ class TextureAtlas {
 	}
 
 	onUpdateImage(image, animationData) {
-		const spriteSheetWidth = image?.naturalWidth || 0;
-		const spriteSheetHeight = image?.naturalHeight || 0;
+		const spriteSheetWidth = image?.naturalWidth || image?.width || 0;
+		const spriteSheetHeight = image?.naturalHeight || image?.height || 0;
 		const { cols, rows, spriteWidth, spriteHeight, frameRate, maxFrameCount, loop, range, firstFrame, direction, vdirection } = animationData;
 		const reverse = range && range[1] < range[0];
 		this.frameRate = Math.abs(frameRate || 1);

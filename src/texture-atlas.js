@@ -90,8 +90,8 @@ class TextureAtlas {
 	}
 
 	onUpdateImage(image, animationData) {
-		const spriteSheetWidth = image?.naturalWidth || 0;
-		const spriteSheetHeight = image?.naturalHeight || 0;
+		const spriteSheetWidth = image?.naturalWidth || image?.width || 0;
+		const spriteSheetHeight = image?.naturalHeight || image?.height || 0;
 		const { cols, rows, spriteWidth, spriteHeight, frameRate, maxFrameCount, loop, range, firstFrame, direction, vdirection } = animationData;
 		const reverse = range && range[1] < range[0];
 		this.frameRate = Math.abs(frameRate || 1);
